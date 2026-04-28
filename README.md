@@ -73,11 +73,13 @@ In **Authentication → URL Configuration**:
 
 ### 5. Grab your env vars
 
-In **Project Settings → API**, copy:
+Supabase split this across two pages and renamed the keys (the new `publishable`/`secret` keys replace the old `anon`/`service_role` names — they're drop-in compatible with `@supabase/ssr`):
 
-- `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
-- `anon` `public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `service_role` `secret` key → `SUPABASE_SERVICE_ROLE_KEY` *(server-only; not strictly required for current functionality but keep it for future server actions)*
+- **Project URL** → **Settings → Data API** → copy `Project URL`. Goes in `NEXT_PUBLIC_SUPABASE_URL`.
+- **Publishable key** → **Settings → API Keys** → "Publishable key" section → copy the value (starts with `sb_publishable_...`). Goes in `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Safe to expose client-side; RLS is what protects your data.
+- **Secret key** → **Settings → API Keys** → "Secret keys" section → copy the value (starts with `sb_secret_...`). Goes in `SUPABASE_SERVICE_ROLE_KEY`. *Server-only; treat as a password, never commit to git, never expose client-side. Not strictly required for current functionality but keep it for future server actions.*
+
+> The variable names in the code (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) keep the older Supabase nomenclature, but you paste the new `sb_publishable_...` and `sb_secret_...` values into them. No code changes needed.
 
 ### 6. Local dev (optional)
 
