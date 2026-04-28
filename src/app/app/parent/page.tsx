@@ -314,19 +314,35 @@ function SettingsView() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  if (!data) return null;
+  if (!data || !data.household || !data.member) {
+    return <div className="p-6 text-text-soft text-center">Loading settings…</div>;
+  }
   const { household, member } = data;
 
   async function signOut() {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (e) {
+      toast((e as Error).message || "Sign-out failed", "⚠️");
+      setBusy(false);
+    }
   }
 
-  function copyInvite() {
-    navigator.clipboard.writeText(household.invite_code);
-    toast("Invite code copied!", "📋");
+  async function copyInvite() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(household.invite_code);
+        toast("Invite code copied!", "📋");
+      } else {
+        // Fallback for browsers without clipboard API (or insecure contexts)
+        toast(`Code: ${household.invite_code}`, "📋");
+      }
+    } catch (e) {
+      toast(`Code: ${household.invite_code}`, "📋");
+    }
   }
 
   return (
