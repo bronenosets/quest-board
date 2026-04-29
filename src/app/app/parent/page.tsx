@@ -87,7 +87,7 @@ export default function ParentPage() {
           />
         )}
         {tab === "stats" && <StatsView hero={hero} history={history} />}
-        {tab === "settings" && <SettingsView />}
+        {tab === "settings" && <SettingsView household={household} member={member} />}
       </Panel>
 
       <QuestFormDialog
@@ -309,15 +309,13 @@ function BigStat({ num, label }: { num: any; label: string }) {
   );
 }
 
-function SettingsView() {
-  const { data } = useHouseholdData();
+function SettingsView({ household, member }: { household: any; member: any }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  if (!data || !data.household || !data.member) {
+  if (!household || !member) {
     return <div className="p-6 text-text-soft text-center">Loading settings…</div>;
   }
-  const { household, member } = data;
 
   async function signOut() {
     setBusy(true);

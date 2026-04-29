@@ -89,13 +89,16 @@ export function useHouseholdData() {
     },
   });
 
-  // Real-time subscriptions
+  // Real-time subscriptions.
+  // Channel name uses a random suffix so multiple components calling this hook
+  // each get their own channel (Supabase throws if you `.on()` an already-subscribed channel).
   useEffect(() => {
     if (!query.data) return;
     const supabase = createClient();
     const hid = query.data.household.id;
+    const channelName = `household:${hid}:${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
-      .channel(`household:${hid}`)
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "quests", filter: `household_id=eq.${hid}` },
         () => qc.invalidateQueries({ queryKey: KEY }))
       .on("postgres_changes", { event: "*", schema: "public", table: "purchases", filter: `household_id=eq.${hid}` },
