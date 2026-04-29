@@ -9,13 +9,15 @@ import { QuestCard } from "@/components/quest-card";
 import { Empty } from "@/components/empty";
 import { QuestFormDialog } from "@/components/quest-form-dialog";
 import { ShopFormDialog } from "@/components/shop-form-dialog";
+import { SectionFormDialog } from "@/components/section-form-dialog";
 import { ApproveQuestDialog } from "@/components/approve-quest-dialog";
+import { ProofImage } from "@/components/proof-image";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { formatMoney } from "@/lib/utils";
-import { approvePurchase, rejectPurchase, deleteQuest, deleteShopItem } from "@/lib/mutations";
+import { approvePurchase, rejectPurchase, deleteQuest, deleteShopItem, deleteSection, markQuestMissed } from "@/lib/mutations";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/toast";
-import type { Quest, ShopItem } from "@/lib/types";
+import type { Quest, ShopItem, Section } from "@/lib/types";
 
 export default function ParentPage() {
   const router = useRouter();
@@ -26,6 +28,8 @@ export default function ParentPage() {
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [shopDialogOpen, setShopDialogOpen] = useState(false);
   const [editingShop, setEditingShop] = useState<ShopItem | null>(null);
+  const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [approving, setApproving] = useState<Quest | null>(null);
 
   if (isLoading) return <div className="p-10 text-center text-text-soft">Loading…</div>;
@@ -41,11 +45,17 @@ export default function ParentPage() {
     return null;
   }
 
-  const { household, member, hero, quests, shop, purchases, history, members } = data;
+  const { household, member, hero, sections, quests, shop, purchases, history, members } = data;
   const heroes = members.filter(m => m.role === "hero");
   const submitted = quests.filter(q => q.status === "submitted");
   const pendingPurchases = purchases.filter(p => p.status === "pending");
   const totalPending = submitted.length + pendingPurchases.length;
+  const overdueWithPenalty = quests.filter(q =>
+    q.due_at && new Date(q.due_at).getTime() < Date.now()
+    && !q.penalty_applied
+    && (q.penalty_xp > 0 || q.penalty_gold > 0 || q.penalty_money > 0)
+    && q.status !== "approved"
+  );
 
   return (
     <>
@@ -55,9 +65,10 @@ export default function ParentPage() {
         active={tab}
         onChange={setTab}
         tabs={[
-          { id: "approvals", label: "Approvals", badge: totalPending },
+          { id: "approvals", label: "Approvals", badge: totalPending + overdueWithPenalty.length },
           { id: "quests", label: "Manage Quests" },
           { id: "shop", label: "Manage Shop" },
+          { id: "sections", label: "Sections" },
           { id: "stats", label: "Stats" },
           { id: "settings", label: "Settings" },
         ]}
@@ -68,6 +79,7 @@ export default function ParentPage() {
           <ApprovalsView
             submitted={submitted}
             pending={pendingPurchases}
+            overdueWithPenalty={overdueWithPenalty}
             onApproveQuest={setApproving}
             heroes={heroes}
           />
@@ -75,6 +87,7 @@ export default function ParentPage() {
         {tab === "quests" && (
           <ManageQuestsView
             quests={quests}
+            sections={sections}
             onAdd={() => { setEditingQuest(null); setQuestDialogOpen(true); }}
             onEdit={(q) => { setEditingQuest(q); setQuestDialogOpen(true); }}
           />
@@ -84,6 +97,14 @@ export default function ParentPage() {
             shop={shop}
             onAdd={() => { setEditingShop(null); setShopDialogOpen(true); }}
             onEdit={(s) => { setEditingShop(s); setShopDialogOpen(true); }}
+          />
+        )}
+        {tab === "sections" && (
+          <ManageSectionsView
+            sections={sections}
+            quests={quests}
+            onAdd={() => { setEditingSection(null); setSectionDialogOpen(true); }}
+            onEdit={(s) => { setEditingSection(s); setSectionDialogOpen(true); }}
           />
         )}
         {tab === "stats" && <StatsView hero={hero} history={history} />}
@@ -96,6 +117,7 @@ export default function ParentPage() {
         existing={editingQuest}
         householdId={household.id}
         heroes={heroes}
+        sections={sections}
       />
       <ShopFormDialog
         open={shopDialogOpen}
@@ -103,18 +125,25 @@ export default function ParentPage() {
         existing={editingShop}
         householdId={household.id}
       />
+      <SectionFormDialog
+        open={sectionDialogOpen}
+        onClose={() => setSectionDialogOpen(false)}
+        existing={editingSection}
+        householdId={household.id}
+      />
       <ApproveQuestDialog quest={approving} onClose={() => setApproving(null)} />
     </>
   );
 }
 
-function ApprovalsView({ submitted, pending, onApproveQuest, heroes }: {
+function ApprovalsView({ submitted, pending, overdueWithPenalty, onApproveQuest, heroes }: {
   submitted: Quest[];
   pending: any[];
+  overdueWithPenalty: Quest[];
   onApproveQuest: (q: Quest) => void;
   heroes: any[];
 }) {
-  if (submitted.length === 0 && pending.length === 0) {
+  if (submitted.length === 0 && pending.length === 0 && overdueWithPenalty.length === 0) {
     return <Empty icon="✅" title="Nothing waiting" hint="Inbox zero!" />;
   }
 
@@ -141,9 +170,40 @@ function ApprovalsView({ submitted, pending, onApproveQuest, heroes }: {
                   {q.proof_note && (
                     <div className="bg-white rounded-lg px-2.5 py-2 text-sm border border-border mb-2">{q.proof_note}</div>
                   )}
+                  {q.proof_url && (
+                    <ProofImage path={q.proof_url} className="max-h-64 w-full mb-2" />
+                  )}
                   <div className="flex gap-2">
                     <button className="btn btn-success btn-sm" onClick={() => onApproveQuest(q)}>✓ Approve</button>
                     <button className="btn btn-danger btn-sm" onClick={() => onApproveQuest(q)}>↩ Send back</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {overdueWithPenalty.length > 0 && (
+        <>
+          <div className="font-extrabold text-text-soft text-xs uppercase tracking-wide mt-5 mb-2.5">Overdue (penalty available)</div>
+          {overdueWithPenalty.map(q => {
+            const h = q.hero_member_id ? heroById[q.hero_member_id] : null;
+            return (
+              <div key={q.id} className="rounded-2xl border p-4 mb-3 flex gap-3.5 items-start" style={{ background: "linear-gradient(135deg, #fff5f5, #ffe8eb)", borderColor: "#ff5a7a" }}>
+                <div className="text-4xl flex-shrink-0">{q.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold">{q.title}</div>
+                  {h && <div className="text-xs text-text-soft mb-0.5">For {h.avatar} {h.display_name}</div>}
+                  <div className="text-xs text-red font-bold mb-2">
+                    Penalty: {q.penalty_xp ? `−${q.penalty_xp} XP ` : ""}{q.penalty_gold ? `−${q.penalty_gold} 🪙 ` : ""}{q.penalty_money ? `−${formatMoney(q.penalty_money)} ` : ""}+ streak reset
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn btn-danger btn-sm" onClick={async () => {
+                      if (confirm(`Apply penalty for missing "${q.title}"?`)) {
+                        try { await markQuestMissed(q.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                      }
+                    }}>⚠️ Apply penalty</button>
                   </div>
                 </div>
               </div>
@@ -157,13 +217,16 @@ function ApprovalsView({ submitted, pending, onApproveQuest, heroes }: {
           <div className="font-extrabold text-text-soft text-xs uppercase tracking-wide mt-5 mb-2.5">Loot Shop Purchases</div>
           {pending.map(p => {
             const h = heroById[p.hero_member_id];
+            const isCashOut = (p.money_value || 0) > 0;
             return (
-              <div key={p.id} className="rounded-2xl border p-4 mb-3 flex gap-3.5 items-start" style={{ background: "linear-gradient(135deg, #fff 0%, #fff8e8 100%)", borderColor: "#ffb800" }}>
+              <div key={p.id} className="rounded-2xl border p-4 mb-3 flex gap-3.5 items-start" style={{ background: isCashOut ? "linear-gradient(135deg, #fff 0%, #d8f7e5 100%)" : "linear-gradient(135deg, #fff 0%, #fff8e8 100%)", borderColor: isCashOut ? "#7cd9a4" : "#ffb800" }}>
                 <div className="text-4xl">{p.icon}</div>
                 <div className="flex-1">
                   <div className="font-extrabold">{p.name}</div>
                   {h && <div className="text-xs text-text-soft mb-0.5">From {h.avatar} {h.display_name}</div>}
-                  <div className="text-xs text-text-soft mb-2">🪙 {p.cost} spent</div>
+                  <div className="text-xs text-text-soft mb-2">
+                    {isCashOut ? `Cash out: 🪙 ${p.cost} → +${formatMoney(p.money_value)}` : `🪙 ${p.cost} spent`}
+                  </div>
                   <div className="flex gap-2">
                     <button className="btn btn-success btn-sm" onClick={async () => {
                       try { await approvePurchase(p.id); } catch (e) { toast((e as Error).message, "⚠️"); }
@@ -182,10 +245,10 @@ function ApprovalsView({ submitted, pending, onApproveQuest, heroes }: {
   );
 }
 
-function ManageQuestsView({ quests, onAdd, onEdit }: { quests: Quest[]; onAdd: () => void; onEdit: (q: Quest) => void }) {
+function ManageQuestsView({ quests, sections, onAdd, onEdit }: { quests: Quest[]; sections: Section[]; onAdd: () => void; onEdit: (q: Quest) => void }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
         <h2 className="text-lg font-extrabold">📜 Manage Quests</h2>
         <button className="btn btn-primary" onClick={onAdd}>+ Add Quest</button>
       </div>
@@ -198,10 +261,16 @@ function ManageQuestsView({ quests, onAdd, onEdit }: { quests: Quest[]; onAdd: (
               key={q.id}
               quest={q}
               parentMode
+              sections={sections}
               onEdit={() => onEdit(q)}
               onDelete={async () => {
                 if (confirm(`Delete "${q.title}"?`)) {
                   try { await deleteQuest(q.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                }
+              }}
+              onMarkMissed={async () => {
+                if (confirm(`Apply penalty for "${q.title}"?`)) {
+                  try { await markQuestMissed(q.id); } catch (e) { toast((e as Error).message, "⚠️"); }
                 }
               }}
             />
@@ -215,7 +284,7 @@ function ManageQuestsView({ quests, onAdd, onEdit }: { quests: Quest[]; onAdd: (
 function ManageShopView({ shop, onAdd, onEdit }: { shop: ShopItem[]; onAdd: () => void; onEdit: (s: ShopItem) => void }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
         <h2 className="text-lg font-extrabold">🛍️ Manage Loot Shop</h2>
         <button className="btn btn-primary" onClick={onAdd}>+ Add Reward</button>
       </div>
@@ -223,26 +292,72 @@ function ManageShopView({ shop, onAdd, onEdit }: { shop: ShopItem[]; onAdd: () =
         <Empty icon="🎁" title="No rewards yet" hint="Add the first one!" />
       ) : (
         <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {shop.map(s => (
-            <div key={s.id} className="rounded-2xl border p-4 flex flex-col gap-2.5" style={{ background: "linear-gradient(135deg, #fff 0%, #fff8e8 100%)", borderColor: "#ffd968" }}>
-              <div className="flex items-center gap-3">
-                <div className="text-4xl">{s.icon}</div>
-                <div className="flex-1">
-                  <div className="font-extrabold">{s.name}</div>
-                  {s.description && <div className="text-xs text-text-soft">{s.description}</div>}
+          {shop.map(s => {
+            const isCashOut = (s.money_value || 0) > 0;
+            return (
+              <div key={s.id} className="rounded-2xl border p-4 flex flex-col gap-2.5" style={{ background: isCashOut ? "linear-gradient(135deg, #fff 0%, #d8f7e5 100%)" : "linear-gradient(135deg, #fff 0%, #fff8e8 100%)", borderColor: isCashOut ? "#7cd9a4" : "#ffd968" }}>
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl">{s.icon}</div>
+                  <div className="flex-1">
+                    <div className="font-extrabold">{s.name}</div>
+                    {s.description && <div className="text-xs text-text-soft">{s.description}</div>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="bg-gold text-[#5a3d00] font-extrabold px-3 py-1 rounded-full text-sm">🪙 {s.cost}</span>
+                  {isCashOut && <span className="chip chip-money">→ {formatMoney(s.money_value)}</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn btn-ghost btn-sm flex-1" onClick={() => onEdit(s)}>✏️ Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={async () => {
+                    if (confirm(`Remove "${s.name}"?`)) {
+                      try { await deleteShopItem(s.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                    }
+                  }}>🗑</button>
                 </div>
               </div>
-              <span className="bg-gold text-[#5a3d00] font-extrabold px-3 py-1 rounded-full self-start text-sm">🪙 {s.cost}</span>
-              <div className="flex gap-2">
-                <button className="btn btn-ghost btn-sm flex-1" onClick={() => onEdit(s)}>✏️ Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={async () => {
-                  if (confirm(`Remove "${s.name}"?`)) {
-                    try { await deleteShopItem(s.id); } catch (e) { toast((e as Error).message, "⚠️"); }
-                  }
-                }}>🗑</button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManageSectionsView({ sections, quests, onAdd, onEdit }: { sections: Section[]; quests: Quest[]; onAdd: () => void; onEdit: (s: Section) => void }) {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <h2 className="text-lg font-extrabold">📁 Manage Sections</h2>
+        <button className="btn btn-primary" onClick={onAdd}>+ Add Section</button>
+      </div>
+      {sections.length === 0 ? (
+        <Empty icon="📁" title="No sections yet" hint="Add School and Home to start." />
+      ) : (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {sections.map(s => {
+            const count = quests.filter(q => q.section_id === s.id).length;
+            return (
+              <div key={s.id} className="card p-4 flex flex-col gap-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl">{s.icon}</div>
+                  <div className="flex-1">
+                    <div className="font-extrabold">{s.name}</div>
+                    <div className="text-xs text-text-soft">{count} quest{count === 1 ? "" : "s"}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn btn-ghost btn-sm flex-1" onClick={() => onEdit(s)}>✏️ Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={async () => {
+                    if (count > 0) {
+                      if (!confirm(`"${s.name}" has ${count} quests. Delete the section anyway? Quests will become unassigned.`)) return;
+                    } else if (!confirm(`Remove "${s.name}"?`)) return;
+                    try { await deleteSection(s.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                  }}>🗑</button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -335,10 +450,9 @@ function SettingsView({ household, member }: { household: any; member: any }) {
         await navigator.clipboard.writeText(household.invite_code);
         toast("Invite code copied!", "📋");
       } else {
-        // Fallback for browsers without clipboard API (or insecure contexts)
         toast(`Code: ${household.invite_code}`, "📋");
       }
-    } catch (e) {
+    } catch {
       toast(`Code: ${household.invite_code}`, "📋");
     }
   }
@@ -351,7 +465,7 @@ function SettingsView({ household, member }: { household: any; member: any }) {
         <div className="font-extrabold mb-2">Family</div>
         <div className="text-sm text-text-soft mb-3">{household.name}</div>
         <div className="font-extrabold text-xs uppercase tracking-wide text-text-soft mb-1">Invite code</div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <code className="bg-card-soft border border-border rounded-lg px-3 py-2 text-base font-mono font-bold">{household.invite_code}</code>
           <button className="btn btn-ghost btn-sm" onClick={copyInvite}>📋 Copy</button>
         </div>
@@ -362,11 +476,6 @@ function SettingsView({ household, member }: { household: any; member: any }) {
         <div className="font-extrabold mb-2">Your account</div>
         <div className="text-sm text-text-soft mb-3">{member.avatar} {member.display_name} ({member.role})</div>
         <button className="btn btn-ghost" disabled={busy} onClick={signOut}>Sign out</button>
-      </div>
-
-      <div className="card p-5">
-        <div className="font-extrabold mb-2">Get help</div>
-        <div className="text-sm text-text-soft">Questions or trouble? Check the README that came with this app, or contact whoever set this up for your family.</div>
       </div>
     </div>
   );

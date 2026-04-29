@@ -52,13 +52,18 @@ gh repo create quest-board --private --source=. --remote=origin --push
 2. Pick a name (e.g. "quest-board"), generate a strong DB password, choose a region near you.
 3. Wait ~1 minute for the project to provision.
 
-### 3. Run the migration
+### 3. Run the migrations
 
-1. In the Supabase dashboard, open **SQL Editor → New query**.
-2. Open `supabase/migrations/0001_initial.sql` from this repo, copy its entire contents, paste into the SQL Editor.
-3. Hit **Run**. You should see `Success. No rows returned`.
+In the Supabase dashboard, open **SQL Editor → New query**, and run each migration in order:
 
-> Re-running the migration is safe — it's idempotent.
+1. `supabase/migrations/0001_initial.sql` — base schema, RLS, RPCs.
+2. `supabase/migrations/0002_round_two.sql` — adds time-limited tasks, customizable sections, penalties, photo proof storage bucket, cash-out shop items.
+
+For each: open the file, copy its contents, paste into the SQL Editor, hit **Run**. You should see `Success. No rows returned`.
+
+> Re-running migrations is safe — they're idempotent.
+
+**After migration 0002, verify storage:** Supabase dashboard → **Storage** (left nav). You should see a private bucket called `quest-proofs`. If it's missing, the storage section of the migration didn't run — re-run just that block.
 
 ### 4. Configure email (magic links)
 

@@ -7,7 +7,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-5 pb-20">
+    <div
+      className="max-w-5xl mx-auto px-4 sm:px-5"
+      style={{
+        paddingTop: "max(env(safe-area-inset-top), 16px)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 80px)",
+      }}
+    >
       {children}
     </div>
   );

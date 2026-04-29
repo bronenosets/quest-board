@@ -6,11 +6,42 @@ import { ACHIEVEMENTS } from "@/lib/achievements";
 import { toast } from "@/components/ui/toast";
 import { fireConfetti } from "@/components/confetti";
 
-export async function submitQuest(questId: string, note: string) {
+export async function submitQuest(questId: string, note: string, proofUrl?: string) {
   const supabase = createClient();
-  const { error } = await supabase.rpc("submit_quest", { quest_id: questId, proof_note: note });
+  const { error } = await supabase.rpc("submit_quest", {
+    quest_id: questId,
+    proof_note: note,
+    proof_url: proofUrl || "",
+  });
   if (error) throw error;
   toast("Sent for approval — nice work!", "📨");
+}
+
+export async function markQuestMissed(questId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("mark_quest_missed", { quest_id: questId });
+  if (error) throw error;
+  toast("Penalty applied", "⚠️");
+}
+
+export async function saveSection(input: { id?: string; household_id: string; name: string; icon?: string; sort_order?: number }) {
+  const supabase = createClient();
+  if (input.id) {
+    const { id, household_id: _hh, ...rest } = input as any;
+    const { error } = await supabase.from("sections").update(rest).eq("id", id);
+    if (error) throw error;
+    toast("Section updated", "📁");
+  } else {
+    const { error } = await supabase.from("sections").insert(input as any);
+    if (error) throw error;
+    toast("Section added", "📁");
+  }
+}
+
+export async function deleteSection(id: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("sections").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function approveQuest(questId: string, parentNote: string) {

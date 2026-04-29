@@ -19,6 +19,7 @@ export function ShopFormDialog({ open, onClose, existing, householdId }: Props) 
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("🎁");
   const [cost, setCost] = useState(25);
+  const [moneyValue, setMoneyValue] = useState(0);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function ShopFormDialog({ open, onClose, existing, householdId }: Props) 
       setDescription(existing?.description ?? "");
       setIcon(existing?.icon ?? "🎁");
       setCost(existing?.cost ?? 25);
+      setMoneyValue(existing?.money_value ?? 0);
     }
   }, [open, existing]);
 
@@ -41,7 +43,8 @@ export function ShopFormDialog({ open, onClose, existing, householdId }: Props) 
         description: description.trim(),
         icon,
         cost,
-      });
+        money_value: moneyValue,
+      } as any);
       onClose();
     } finally {
       setBusy(false);
@@ -61,6 +64,25 @@ export function ShopFormDialog({ open, onClose, existing, householdId }: Props) 
 
       <label className="label">Gold cost 🪙</label>
       <input type="number" min="0" className="input" value={cost} onChange={e => setCost(Number(e.target.value) || 0)} />
+
+      <details className="mb-3">
+        <summary className="cursor-pointer font-bold text-sm text-text-soft py-2">💵 Cash-out (optional)</summary>
+        <div className="pt-2">
+          <label className="label">Dollar value (for cash-out items)</label>
+          <input
+            type="number"
+            step="0.25"
+            min="0"
+            className="input"
+            value={moneyValue}
+            onChange={e => setMoneyValue(Number(e.target.value) || 0)}
+            placeholder="0 = regular reward"
+          />
+          <p className="text-xs text-text-soft mt-1">
+            If &gt; 0, approving this purchase credits this amount to her dollar balance (e.g., cost 500 🪙 → +$5 dollars). Leave at 0 for normal physical-world rewards.
+          </p>
+        </div>
+      </details>
 
       <div className="flex gap-2 justify-end mt-4">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
