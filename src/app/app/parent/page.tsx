@@ -53,7 +53,7 @@ export default function ParentPage() {
   const overdueWithPenalty = quests.filter(q =>
     q.due_at && new Date(q.due_at).getTime() < Date.now()
     && !q.penalty_applied
-    && (q.penalty_xp > 0 || q.penalty_gold > 0 || q.penalty_money > 0)
+    && (q.penalty_xp > 0 || q.penalty_gold > 0)
     && q.status !== "approved"
   );
 
@@ -165,7 +165,7 @@ function ApprovalsView({ submitted, pending, overdueWithPenalty, onApproveQuest,
                   <div className="font-extrabold">{q.title}</div>
                   {h && <div className="text-xs text-text-soft mb-0.5">From {h.avatar} {h.display_name}</div>}
                   <div className="text-xs text-text-soft mb-1.5">
-                    +{q.xp} XP, +{q.gold} 🪙{q.money > 0 ? `, +${formatMoney(q.money)}` : ""}
+                    +{q.xp} XP, +{q.gold} 🪙
                   </div>
                   {q.proof_note && (
                     <div className="bg-white rounded-lg px-2.5 py-2 text-sm border border-border mb-2">{q.proof_note}</div>
@@ -196,7 +196,7 @@ function ApprovalsView({ submitted, pending, overdueWithPenalty, onApproveQuest,
                   <div className="font-extrabold">{q.title}</div>
                   {h && <div className="text-xs text-text-soft mb-0.5">For {h.avatar} {h.display_name}</div>}
                   <div className="text-xs text-red font-bold mb-2">
-                    Penalty: {q.penalty_xp ? `−${q.penalty_xp} XP ` : ""}{q.penalty_gold ? `−${q.penalty_gold} 🪙 ` : ""}{q.penalty_money ? `−${formatMoney(q.penalty_money)} ` : ""}+ streak reset
+                    Penalty: {q.penalty_xp ? `−${q.penalty_xp} XP ` : ""}{q.penalty_gold ? `−${q.penalty_gold} 🪙 ` : ""}+ streak reset
                   </div>
                   <div className="flex gap-2">
                     <button className="btn btn-danger btn-sm" onClick={async () => {

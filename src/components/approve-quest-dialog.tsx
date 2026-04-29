@@ -35,7 +35,7 @@ export function ApproveQuestDialog({ quest, onClose }: Props) {
             <div>
               <div className="font-extrabold">{quest.title}</div>
               <div className="text-xs text-text-soft">
-                +{quest.xp} XP, +{quest.gold} 🪙{quest.money > 0 ? `, +${formatMoney(quest.money)}` : ""}
+                +{quest.xp} XP, +{quest.gold} 🪙
               </div>
             </div>
           </div>

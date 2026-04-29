@@ -18,7 +18,7 @@ export function QuestCard({ quest: q, parentMode, sections, onSubmit, onEdit, on
   const available = !parentMode && (q.status === "available" || (q.recurring && isQuestAvailableToday(q)));
   const isOverdue = q.due_at && new Date(q.due_at).getTime() < Date.now() && q.status !== "approved";
   const section = sections?.find(s => s.id === q.section_id);
-  const hasPenalty = (q.penalty_xp || 0) > 0 || (q.penalty_gold || 0) > 0 || (q.penalty_money || 0) > 0;
+  const hasPenalty = (q.penalty_xp || 0) > 0 || (q.penalty_gold || 0) > 0;
 
   let cardClass = "card p-4 flex flex-col gap-3 relative";
   if (q.status === "submitted") {
@@ -71,7 +71,6 @@ export function QuestCard({ quest: q, parentMode, sections, onSubmit, onEdit, on
         {q.category && <span className="chip chip-cat">{q.category}</span>}
         {q.xp > 0 && <span className="chip chip-xp">✨ {q.xp} XP</span>}
         {q.gold > 0 && <span className="chip chip-gold">🪙 {q.gold}</span>}
-        {q.money > 0 && <span className="chip chip-money">💵 ${Number(q.money).toFixed(2)}</span>}
         {q.recurring && <span className="chip chip-recurring">🔁 {q.recurring}</span>}
         {q.due_at ? <Countdown dueAt={q.due_at} /> : q.due_date ? <span className="chip chip-due">📅 {q.due_date}</span> : null}
       </div>
@@ -81,7 +80,6 @@ export function QuestCard({ quest: q, parentMode, sections, onSubmit, onEdit, on
           <span>⚠️ Penalty if missed:</span>
           {(q.penalty_xp || 0) > 0 && <span>−{q.penalty_xp} XP</span>}
           {(q.penalty_gold || 0) > 0 && <span>−{q.penalty_gold} 🪙</span>}
-          {(q.penalty_money || 0) > 0 && <span>−${Number(q.penalty_money).toFixed(2)}</span>}
           {q.penalty_mode === "auto" && <span className="opacity-70">(auto)</span>}
         </div>
       )}

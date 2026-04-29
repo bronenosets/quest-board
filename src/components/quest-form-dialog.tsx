@@ -24,14 +24,12 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
   const [sectionId, setSectionId] = useState<string>("");
   const [xp, setXp] = useState(10);
   const [gold, setGold] = useState(5);
-  const [money, setMoney] = useState(0);
   const [recurring, setRecurring] = useState<"" | "daily" | "weekly">("");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [heroId, setHeroId] = useState("");
   const [penaltyXp, setPenaltyXp] = useState(0);
   const [penaltyGold, setPenaltyGold] = useState(0);
-  const [penaltyMoney, setPenaltyMoney] = useState(0);
   const [penaltyMode, setPenaltyMode] = useState<"manual" | "auto">("manual");
   const [busy, setBusy] = useState(false);
 
@@ -44,7 +42,6 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
       setSectionId(existing?.section_id ?? sections[0]?.id ?? "");
       setXp(existing?.xp ?? 10);
       setGold(existing?.gold ?? 5);
-      setMoney(existing?.money ?? 0);
       setRecurring((existing?.recurring as "" | "daily" | "weekly") ?? "");
       // Parse due_at if set, otherwise fall back to due_date
       if (existing?.due_at) {
@@ -58,7 +55,6 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
       setHeroId(existing?.hero_member_id ?? (heroes[0]?.id ?? ""));
       setPenaltyXp(existing?.penalty_xp ?? 0);
       setPenaltyGold(existing?.penalty_gold ?? 0);
-      setPenaltyMoney(existing?.penalty_money ?? 0);
       setPenaltyMode((existing?.penalty_mode as "manual" | "auto") ?? "manual");
     }
   }, [open, existing, heroes, sections]);
@@ -86,13 +82,13 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
         category,
         xp,
         gold,
-        money,
+        money: 0,
         recurring: recurring || null,
         due_date: dueDate || null,
         due_at: dueAt,
         penalty_xp: penaltyXp,
         penalty_gold: penaltyGold,
-        penalty_money: penaltyMoney,
+        penalty_money: 0,
         penalty_mode: penaltyMode,
       });
       onClose();
@@ -137,7 +133,7 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
         </>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="label">XP</label>
           <input type="number" className="input" min="0" value={xp} onChange={e => setXp(Number(e.target.value) || 0)} />
@@ -146,11 +142,8 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
           <label className="label">Gold 🪙</label>
           <input type="number" className="input" min="0" value={gold} onChange={e => setGold(Number(e.target.value) || 0)} />
         </div>
-        <div>
-          <label className="label">Money $</label>
-          <input type="number" step="0.25" className="input" min="0" value={money} onChange={e => setMoney(Number(e.target.value) || 0)} />
-        </div>
       </div>
+      <p className="text-xs text-text-soft -mt-1 mb-3">Money is earned only via cash-out items in the Loot Shop.</p>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -173,7 +166,7 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
       <details className="mb-3 mt-2">
         <summary className="cursor-pointer font-bold text-sm text-text-soft py-2">⚠️ Penalty settings (optional)</summary>
         <div className="pt-2">
-          <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <div>
               <label className="label">−XP</label>
               <input type="number" className="input" min="0" value={penaltyXp} onChange={e => setPenaltyXp(Number(e.target.value) || 0)} />
@@ -181,10 +174,6 @@ export function QuestFormDialog({ open, onClose, existing, householdId, heroes, 
             <div>
               <label className="label">−Gold</label>
               <input type="number" className="input" min="0" value={penaltyGold} onChange={e => setPenaltyGold(Number(e.target.value) || 0)} />
-            </div>
-            <div>
-              <label className="label">−Money</label>
-              <input type="number" step="0.25" className="input" min="0" value={penaltyMoney} onChange={e => setPenaltyMoney(Number(e.target.value) || 0)} />
             </div>
           </div>
           <label className="label">When does the penalty apply?</label>
