@@ -103,6 +103,20 @@ export interface Purchase {
   approved_at: string | null;
 }
 
+export type ExtensionStatus = "pending" | "approved" | "rejected";
+
+export interface ExtensionRequest {
+  id: string;
+  household_id: string;
+  quest_id: string;
+  hero_member_id: string;
+  extend_minutes: number;
+  reason: string;
+  status: ExtensionStatus;
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export interface HistoryEntry {
   id: string;
   household_id: string;
@@ -130,6 +144,9 @@ export interface Database {
       shop_items: { Row: ShopItem; Insert: Partial<ShopItem>; Update: Partial<ShopItem>; Relationships: [] };
       purchases: { Row: Purchase; Insert: Partial<Purchase>; Update: Partial<Purchase>; Relationships: [] };
       history: { Row: HistoryEntry; Insert: Partial<HistoryEntry>; Update: Partial<HistoryEntry>; Relationships: [] };
+      extension_requests: { Row: ExtensionRequest; Insert: Partial<ExtensionRequest>; Update: Partial<ExtensionRequest>; Relationships: [] };
+      push_subscriptions: { Row: any; Insert: any; Update: any; Relationships: [] };
+      sent_reminders: { Row: any; Insert: any; Update: any; Relationships: [] };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -146,6 +163,9 @@ export interface Database {
       reject_purchase: { Args: { purchase_id: string }; Returns: undefined };
       seed_starter_data: { Args: { p_household_id: string }; Returns: undefined };
       unlock_achievement: { Args: { p_member_id: string; ach: string }; Returns: undefined };
+      request_extension: { Args: { quest_id: string; extend_minutes: number; reason?: string }; Returns: string };
+      approve_extension: { Args: { request_id: string }; Returns: undefined };
+      reject_extension: { Args: { request_id: string }; Returns: undefined };
     };
     Enums: {
       member_role: Role;

@@ -8,10 +8,13 @@ import { TabBar, Panel } from "@/components/tabs";
 import { QuestCard } from "@/components/quest-card";
 import { Empty } from "@/components/empty";
 import { SubmitQuestDialog } from "@/components/submit-quest-dialog";
+import { ExtensionDialog } from "@/components/extension-dialog";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { isQuestAvailableToday, formatMoney } from "@/lib/utils";
 import { LevelUpHost, showLevelUp } from "@/components/level-up";
+import { NotificationToggle } from "@/components/notification-toggle";
 import { buyShopItem, checkAndUnlockAchievements } from "@/lib/mutations";
+import { createClient } from "@/lib/supabase/client";
 import type { Quest, Section } from "@/lib/types";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/toast";
@@ -22,6 +25,7 @@ export default function HeroPage() {
   const [tab, setTab] = useState("today");
   const [sectionFilter, setSectionFilter] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<Quest | null>(null);
+  const [extending, setExtending] = useState<Quest | null>(null);
   const [lastLevel, setLastLevel] = useState<number | null>(null);
 
   useEffect(() => {
@@ -51,10 +55,11 @@ export default function HeroPage() {
     return null;
   }
 
-  const { household, member, hero, sections, quests, shop, purchases, history } = data;
+  const { household, member, hero, sections, quests, shop, purchases, history, extensions } = data;
   const myQuests = quests.filter(q => q.hero_member_id === member.id || q.hero_member_id === null);
   const submittedCount = myQuests.filter(q => q.status === "submitted").length;
   const myPurchases = purchases.filter(p => p.hero_member_id === member.id);
+  const pendingExtIds = new Set(extensions.filter(e => e.status === "pending").map(e => e.quest_id));
 
   const todays = myQuests.filter(q => {
     if (q.status === "submitted") return true;
@@ -81,6 +86,7 @@ export default function HeroPage() {
           { id: "wallet", label: "Wallet" },
           { id: "achievements", label: "Achievements" },
           { id: "history", label: "History" },
+          { id: "settings", label: "Settings" },
         ]}
       />
 
@@ -101,7 +107,7 @@ export default function HeroPage() {
               />
             ) : (
               <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTodays.map(q => <QuestCard key={q.id} quest={q} sections={sections} onSubmit={() => setSubmitting(q)} />)}
+                {filteredTodays.map(q => <QuestCard key={q.id} quest={q} sections={sections} hasPendingExtension={pendingExtIds.has(q.id)} onSubmit={() => setSubmitting(q)} onRequestExtension={() => setExtending(q)} />)}
               </div>
             )}
           </>
@@ -114,7 +120,9 @@ export default function HeroPage() {
             <AllQuestsBySection
               sections={sections}
               quests={myQuests}
+              pendingExtIds={pendingExtIds}
               onSubmit={setSubmitting}
+              onRequestExtension={setExtending}
             />
           )
         )}
@@ -143,6 +151,10 @@ export default function HeroPage() {
               })}
             </div>
           </div>
+        )}
+
+        {tab === "settings" && (
+          <HeroSettings member={member} />
         )}
 
         {tab === "history" && (
@@ -184,8 +196,34 @@ export default function HeroPage() {
       </Panel>
 
       <SubmitQuestDialog quest={submitting} householdId={household.id} onClose={() => setSubmitting(null)} />
+      <ExtensionDialog quest={extending} onClose={() => setExtending(null)} />
       <LevelUpHost />
     </>
+  );
+}
+
+function HeroSettings({ member }: { member: any }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  async function signOut() {
+    setBusy(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+  return (
+    <div>
+      <h2 className="text-lg font-extrabold mb-3">⚙️ Settings</h2>
+      <div className="card p-5 mb-3.5">
+        <div className="font-extrabold mb-2">Notifications</div>
+        <NotificationToggle memberId={member.id} />
+      </div>
+      <div className="card p-5">
+        <div className="font-extrabold mb-2">Account</div>
+        <div className="text-sm text-text-soft mb-3">{member.avatar} {member.display_name}</div>
+        <button className="btn btn-ghost" disabled={busy} onClick={signOut}>Sign out</button>
+      </div>
+    </div>
   );
 }
 
@@ -231,7 +269,7 @@ function SectionTiles({ sections, quests, activeId, onChange }: { sections: Sect
   );
 }
 
-function AllQuestsBySection({ sections, quests, onSubmit }: { sections: Section[]; quests: Quest[]; onSubmit: (q: Quest) => void }) {
+function AllQuestsBySection({ sections, quests, pendingExtIds, onSubmit, onRequestExtension }: { sections: Section[]; quests: Quest[]; pendingExtIds: Set<string>; onSubmit: (q: Quest) => void; onRequestExtension: (q: Quest) => void }) {
   const grouped: { name: string; icon: string; quests: Quest[] }[] = [];
   sections.forEach(s => {
     const qs = quests.filter(q => q.section_id === s.id);
@@ -246,7 +284,7 @@ function AllQuestsBySection({ sections, quests, onSubmit }: { sections: Section[
         <div key={g.name}>
           <h3 className="font-extrabold text-sm uppercase tracking-wide text-text-soft mb-2.5">{g.icon} {g.name}</h3>
           <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {g.quests.map(q => <QuestCard key={q.id} quest={q} sections={sections} onSubmit={() => onSubmit(q)} />)}
+            {g.quests.map(q => <QuestCard key={q.id} quest={q} sections={sections} hasPendingExtension={pendingExtIds.has(q.id)} onSubmit={() => onSubmit(q)} onRequestExtension={() => onRequestExtension(q)} />)}
           </div>
         </div>
       ))}

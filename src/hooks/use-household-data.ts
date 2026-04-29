@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Household, HouseholdMember, Hero, Quest, ShopItem, Purchase, HistoryEntry, Section } from "@/lib/types";
+import type { Household, HouseholdMember, Hero, Quest, ShopItem, Purchase, HistoryEntry, Section, ExtensionRequest } from "@/lib/types";
 
 export interface HouseholdData {
   user: { id: string; email: string | null };
@@ -16,6 +16,7 @@ export interface HouseholdData {
   shop: ShopItem[];
   purchases: Purchase[];
   history: HistoryEntry[];
+  extensions: ExtensionRequest[];
 }
 
 const KEY = ["household-data"] as const;
@@ -79,6 +80,9 @@ export function useHouseholdData() {
       const { data: history } = await supabase
         .from("history").select("*").eq("household_id", member.household_id).order("approved_at", { ascending: false }).limit(100);
 
+      const { data: extensions } = await supabase
+        .from("extension_requests").select("*").eq("household_id", member.household_id).order("created_at", { ascending: false });
+
       return {
         user: { id: user.id, email: user.email || null },
         household,
@@ -90,6 +94,7 @@ export function useHouseholdData() {
         shop: shop || [],
         purchases: purchases || [],
         history: history || [],
+        extensions: extensions || [],
       };
     },
   });
@@ -113,6 +118,8 @@ export function useHouseholdData() {
       .on("postgres_changes", { event: "*", schema: "public", table: "shop_items", filter: `household_id=eq.${hid}` },
         () => qc.invalidateQueries({ queryKey: KEY }))
       .on("postgres_changes", { event: "*", schema: "public", table: "sections", filter: `household_id=eq.${hid}` },
+        () => qc.invalidateQueries({ queryKey: KEY }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "extension_requests", filter: `household_id=eq.${hid}` },
         () => qc.invalidateQueries({ queryKey: KEY }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };

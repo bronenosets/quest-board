@@ -8,13 +8,15 @@ interface QuestCardProps {
   quest: Quest;
   parentMode?: boolean;
   sections?: Section[];
+  hasPendingExtension?: boolean;
   onSubmit?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onMarkMissed?: () => void;
+  onRequestExtension?: () => void;
 }
 
-export function QuestCard({ quest: q, parentMode, sections, onSubmit, onEdit, onDelete, onMarkMissed }: QuestCardProps) {
+export function QuestCard({ quest: q, parentMode, sections, hasPendingExtension, onSubmit, onEdit, onDelete, onMarkMissed, onRequestExtension }: QuestCardProps) {
   const available = !parentMode && (q.status === "available" || (q.recurring && isQuestAvailableToday(q)));
   const isOverdue = q.due_at && new Date(q.due_at).getTime() < Date.now() && q.status !== "approved";
   const section = sections?.find(s => s.id === q.section_id);
@@ -99,7 +101,15 @@ export function QuestCard({ quest: q, parentMode, sections, onSubmit, onEdit, on
             )}
           </>
         ) : available ? (
-          <button className="btn btn-primary btn-block" onClick={onSubmit}>✓ Mark complete</button>
+          <>
+            <button className="btn btn-primary flex-1" onClick={onSubmit}>✓ Mark complete</button>
+            {q.due_at && onRequestExtension && !hasPendingExtension && (
+              <button className="btn btn-ghost btn-sm" onClick={onRequestExtension}>⏰ More time</button>
+            )}
+            {hasPendingExtension && (
+              <span className="chip chip-due">⏰ Extension pending</span>
+            )}
+          </>
         ) : q.status === "submitted" ? (
           <button className="btn btn-ghost btn-block" disabled>Waiting for parent…</button>
         ) : (

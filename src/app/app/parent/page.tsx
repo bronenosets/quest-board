@@ -12,9 +12,10 @@ import { ShopFormDialog } from "@/components/shop-form-dialog";
 import { SectionFormDialog } from "@/components/section-form-dialog";
 import { ApproveQuestDialog } from "@/components/approve-quest-dialog";
 import { ProofImage } from "@/components/proof-image";
+import { NotificationToggle } from "@/components/notification-toggle";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { formatMoney } from "@/lib/utils";
-import { approvePurchase, rejectPurchase, deleteQuest, deleteShopItem, deleteSection, markQuestMissed } from "@/lib/mutations";
+import { approvePurchase, rejectPurchase, deleteQuest, deleteShopItem, deleteSection, markQuestMissed, approveExtension, rejectExtension } from "@/lib/mutations";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/toast";
 import type { Quest, ShopItem, Section } from "@/lib/types";
@@ -45,11 +46,12 @@ export default function ParentPage() {
     return null;
   }
 
-  const { household, member, hero, sections, quests, shop, purchases, history, members } = data;
+  const { household, member, hero, sections, quests, shop, purchases, history, members, extensions } = data;
   const heroes = members.filter(m => m.role === "hero");
   const submitted = quests.filter(q => q.status === "submitted");
   const pendingPurchases = purchases.filter(p => p.status === "pending");
-  const totalPending = submitted.length + pendingPurchases.length;
+  const pendingExtensions = extensions.filter(e => e.status === "pending");
+  const totalPending = submitted.length + pendingPurchases.length + pendingExtensions.length;
   const overdueWithPenalty = quests.filter(q =>
     q.due_at && new Date(q.due_at).getTime() < Date.now()
     && !q.penalty_applied
@@ -79,6 +81,8 @@ export default function ParentPage() {
           <ApprovalsView
             submitted={submitted}
             pending={pendingPurchases}
+            extensions={pendingExtensions}
+            quests={quests}
             overdueWithPenalty={overdueWithPenalty}
             onApproveQuest={setApproving}
             heroes={heroes}
@@ -136,18 +140,21 @@ export default function ParentPage() {
   );
 }
 
-function ApprovalsView({ submitted, pending, overdueWithPenalty, onApproveQuest, heroes }: {
+function ApprovalsView({ submitted, pending, extensions, quests, overdueWithPenalty, onApproveQuest, heroes }: {
   submitted: Quest[];
   pending: any[];
+  extensions: any[];
+  quests: Quest[];
   overdueWithPenalty: Quest[];
   onApproveQuest: (q: Quest) => void;
   heroes: any[];
 }) {
-  if (submitted.length === 0 && pending.length === 0 && overdueWithPenalty.length === 0) {
+  if (submitted.length === 0 && pending.length === 0 && overdueWithPenalty.length === 0 && extensions.length === 0) {
     return <Empty icon="✅" title="Nothing waiting" hint="Inbox zero!" />;
   }
 
   const heroById = Object.fromEntries(heroes.map(h => [h.id, h]));
+  const questById = Object.fromEntries(quests.map(q => [q.id, q]));
 
   return (
     <div>
@@ -204,6 +211,37 @@ function ApprovalsView({ submitted, pending, overdueWithPenalty, onApproveQuest,
                         try { await markQuestMissed(q.id); } catch (e) { toast((e as Error).message, "⚠️"); }
                       }
                     }}>⚠️ Apply penalty</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {extensions.length > 0 && (
+        <>
+          <div className="font-extrabold text-text-soft text-xs uppercase tracking-wide mt-5 mb-2.5">⏰ Time Extension Requests</div>
+          {extensions.map(r => {
+            const q = questById[r.quest_id];
+            const h = heroById[r.hero_member_id];
+            const minutes = r.extend_minutes;
+            const label = minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60 * 10) / 10} hrs`;
+            return (
+              <div key={r.id} className="rounded-2xl border p-4 mb-3 flex gap-3.5 items-start" style={{ background: "linear-gradient(135deg, #fff 0%, #e3f2ff 100%)", borderColor: "#4dafff" }}>
+                <div className="text-4xl flex-shrink-0">{q?.icon || "⏰"}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold">{q?.title || "(quest)"}</div>
+                  {h && <div className="text-xs text-text-soft mb-0.5">From {h.avatar} {h.display_name}</div>}
+                  <div className="text-xs text-text-soft mb-1">Wants +{label}{q?.due_at ? ` (currently due ${new Date(q.due_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })})` : ""}</div>
+                  {r.reason && <div className="bg-white rounded-lg px-2.5 py-2 text-sm border border-border mb-2">"{r.reason}"</div>}
+                  <div className="flex gap-2">
+                    <button className="btn btn-success btn-sm" onClick={async () => {
+                      try { await approveExtension(r.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                    }}>✓ Grant</button>
+                    <button className="btn btn-danger btn-sm" onClick={async () => {
+                      try { await rejectExtension(r.id); } catch (e) { toast((e as Error).message, "⚠️"); }
+                    }}>↩ Decline</button>
                   </div>
                 </div>
               </div>
@@ -470,6 +508,11 @@ function SettingsView({ household, member }: { household: any; member: any }) {
           <button className="btn btn-ghost btn-sm" onClick={copyInvite}>📋 Copy</button>
         </div>
         <p className="text-xs text-text-soft mt-2">Share this with another parent or your hero so they can join the family.</p>
+      </div>
+
+      <div className="card p-5 mb-3.5">
+        <div className="font-extrabold mb-2">Notifications</div>
+        <NotificationToggle memberId={member.id} />
       </div>
 
       <div className="card p-5 mb-3.5">

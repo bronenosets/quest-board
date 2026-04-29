@@ -56,8 +56,12 @@ gh repo create quest-board --private --source=. --remote=origin --push
 
 In the Supabase dashboard, open **SQL Editor → New query**, and run each migration in order:
 
-1. `supabase/migrations/0001_initial.sql` — base schema, RLS, RPCs.
-2. `supabase/migrations/0002_round_two.sql` — adds time-limited tasks, customizable sections, penalties, photo proof storage bucket, cash-out shop items.
+1. `0001_initial.sql` — base schema, RLS, RPCs.
+2. `0002_round_two.sql` — time-limited tasks, sections, penalties, photo proof, cash-out items.
+3. `0003_fix_join_household.sql` — hotfix for invite-flow ambiguity bug.
+4. `0004_fix_unassigned_quests.sql` — hero auto-assigns unassigned quests on first submit.
+5. `0005_money_only_via_cashout.sql` — quests stop crediting money; only cash-out shop items do.
+6. `0006_push_and_extensions.sql` — push subscriptions, time-extension requests, deadline-reminder log.
 
 For each: open the file, copy its contents, paste into the SQL Editor, hit **Run**. You should see `Success. No rows returned`.
 
@@ -85,6 +89,23 @@ Supabase split this across two pages and renamed the keys (the new `publishable`
 - **Secret key** → **Settings → API Keys** → "Secret keys" section → copy the value (starts with `sb_secret_...`). Goes in `SUPABASE_SERVICE_ROLE_KEY`. *Server-only; treat as a password, never commit to git, never expose client-side. Not strictly required for current functionality but keep it for future server actions.*
 
 > The variable names in the code (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) keep the older Supabase nomenclature, but you paste the new `sb_publishable_...` and `sb_secret_...` values into them. No code changes needed.
+
+### 5b. Generate web-push (VAPID) keys
+
+For push notifications (round 3+). One-time setup:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Take the two keys it prints and add them to Vercel **Environment Variables**:
+
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — the public key
+- `VAPID_PRIVATE_KEY` — the private key (treat as secret)
+- `VAPID_SUBJECT` — `mailto:your@email.com`
+- `CRON_SECRET` — any random string (e.g., `openssl rand -hex 32`). Vercel Cron will send this in the Authorization header to authenticate scheduled invocations.
+
+Redeploy after saving so the new env vars take effect.
 
 ### 6. Local dev (optional)
 
